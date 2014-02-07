@@ -13,7 +13,6 @@ import java.io.File;
  * @author Connor
  */
 public class Handler {
-    
    
     static File selectedFile;
 

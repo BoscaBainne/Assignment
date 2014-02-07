@@ -1,20 +1,15 @@
 package gui.resources;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JFileChooser;
 
 /**
@@ -142,6 +137,7 @@ public class GUI extends javax.swing.JFrame {
     }//GEN-LAST:event_SelectFileActionPerformed
 
     private void DownloadButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DownloadButtonActionPerformed
+        
     }//GEN-LAST:event_DownloadButtonActionPerformed
 
     private void ExitButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_ExitButtonActionPerformed
@@ -150,29 +146,54 @@ public class GUI extends javax.swing.JFrame {
 
     private void UploadFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_UploadFileActionPerformed
 
-        Path path = Paths.get(Handler.selectedFile.getPath());
         try {
-            byte[] data = Files.readAllBytes(path);
-            System.out.println("Success - byte array");
-
-        } catch (IOException ex) {
-            Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        try {
-            File file = new File(Handler.selectedFile.getName());
             Socket sock = new Socket("localhost", 3332);
             
-            ObjectInputStream ois = new ObjectInputStream(sock.getInputStream());
-            ObjectOutputStream oos = new ObjectOutputStream(sock.getOutputStream());
+            File file = new File(Handler.selectedFile.getName());
+            byte[] mybytearray = new byte[(int) file.length()];
+
+            FileInputStream fis = new FileInputStream(file);
+            BufferedInputStream bis = new BufferedInputStream(fis);
+            //bis.read(mybytearray, 0, mybytearray.length);
+
+            DataInputStream dis = new DataInputStream(bis);
+            dis.readFully(mybytearray, 0, mybytearray.length);
+
+            OutputStream os = sock.getOutputStream();
             
-            ByteArrayOutputStream baos;
-            baos = new ByteArrayOutputStream();
-            
-            
-   
+        try {
+            int bytesRead;
+
+            DataInputStream clientData = new DataInputStream(sock.getInputStream());
+
+            String fileName = clientData.readUTF();
+            OutputStream output = new FileOutputStream(("received_from_client_" + fileName));
+            long size = clientData.readLong();
+            byte[] buffer = new byte[1024];
+            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                output.write(buffer, 0, bytesRead);
+                size -= bytesRead;
+            }
+
+            output.close();
+            clientData.close();
+
+            System.out.println("File "+fileName+" received from client.");
         } catch (IOException ex) {
-            Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
-        }  
+            System.err.println("Client error. Connection closed.");
+        }
+
+            //Sending file name and file size to the server
+            DataOutputStream dos = new DataOutputStream(os);
+            dos.writeUTF(file.getName());
+            dos.writeLong(mybytearray.length);
+            dos.write(mybytearray, 0, mybytearray.length);
+            dos.flush();
+            System.out.println("File "+Handler.selectedFile.getName()+" sent to Server.");
+        } catch (Exception e) {
+            System.err.println("File does not exist!");
+        }
+        
     }//GEN-LAST:event_UploadFileActionPerformed
 
     /**
